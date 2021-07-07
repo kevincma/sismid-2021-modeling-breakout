@@ -57,9 +57,9 @@ exposure.SEIR <- function(t, x, parms){           # Set up function with three a
         beta <- beta/scaling.factor               # Scale beta so the R0 matches what we specified (default.R0 in the parameter section)
 
         dS <- -beta %*% I*S                       # System of rate equations in matrix formulation
-        dE <- beta %*% I*S - r*E
-        dI <- r*E - g*I
-        dR <- g*I
+        dE <- beta %*% I*S - r*E                  # Note the matrix multiplication (%*%) ...
+        dI <- r*E - g*I                           # and elementwise-multiplication (*) ...
+        dR <- g*I                                 # which matches the equations in the overview PDF
         der <- c(dS, dE, dI, dR)                  # Combine results into a single vector der
         list(der)                                 # Return result as a list       
     })
@@ -122,8 +122,7 @@ rescale.R0 <- function(beta, g.parm, pop.p, N, R0.value, ngm.plot=TRUE) {
 
 ```{r chunk5}
 
-# Simulate either variable susceptibility or exposure models given 
-# susceptibility or activity ratios, respectively
+# Simulate variable exposure models given activity levels
 #
 # INPUT 
 # R0.value = desired R0
@@ -135,7 +134,7 @@ rescale.R0 <- function(beta, g.parm, pop.p, N, R0.value, ngm.plot=TRUE) {
 # init.inf = vector of initial number of infecteds
 # epsilon = assortativity parameter
 # years = how many years to simulate for
-# plot.days = how many days to plot for if plots are T
+# plot.days = how many days to plot for
 # tstep = time step for simulations
 # ci.plot = whether or not to plot the cumulative incidence trajectories
 #
@@ -151,23 +150,13 @@ run.structured.model <- function(R0.value, pop, pop.p, g.parm, fitted.vars, mode
     inits <- inits + c(-init.inf, rep(0,5), init.inf, rep(0,5)) # Initialize models with 1 infected in each group by default
     dt <- seq(0, 365*years, tstep) # Simulate for 1 year by default
 
-    if (model=='suscep'){
-        hazards <- fitted.vars
-        scale.beta <- hazards*matrix(1, 5, 5)/pop
-        scaling.factor <- rescale.R0(scale.beta, g.parm, pop.p, N, R0.value)
-        parms <- list(r=r.parm, g=g.parm, hazards=hazards, pop=pop, scaling.factor=scaling.factor)
-        simulation <- as.data.frame(lsoda(inits, dt, suscep.SEIR, parms=parms))
-    } else if (model=='exposure'){
-        activities <- fitted.vars
-        scale.beta <- (1-epsilon)*outer(activities, activities)/sum(pop*pop.p*activities) +
-                      epsilon*activities/(pop*pop.p)*diag(5)
-        scaling.factor <- rescale.R0(scale.beta, g.parm, pop.p, N, R0.value) 
-        parms <- list(r=r.parm, g=g.parm, activities=activities, 
-                      scaling.factor=scaling.factor, pop=pop, pop.p=pop.p, epsilon=epsilon)
-        simulation <- as.data.frame(lsoda(inits, dt, exposure.SEIR, parms=parms))        
-    } else {
-        stop('Model options are "suscep" or "exposure".')
-    }
+    activities <- fitted.vars
+    scale.beta <- (1-epsilon)*outer(activities, activities)/sum(pop*pop.p*activities) +    # Calculate un-scaled beta matrix
+                  epsilon*activities/(pop*pop.p)*diag(5)
+    scaling.factor <- rescale.R0(scale.beta, g.parm, pop.p, N, R0.value)                   # Rescale beta to match desired R0
+    parms <- list(r=r.parm, g=g.parm, activities=activities,                               # List of parameters to pass
+                  scaling.factor=scaling.factor, pop=pop, pop.p=pop.p, epsilon=epsilon) 
+    simulation <- as.data.frame(lsoda(inits, dt, exposure.SEIR, parms=parms))              # Solve SEIR differential equations
      
     # Final size      
     final.size <- simulation %>% 
@@ -297,17 +286,15 @@ binom.loglik <- function(parms, pop, pop.p, sero.p, sero.tested, years, init.inf
 # ML fit parameters normalized relative to NH whites
 
 fit.model <- function(pop, pop.p, sero.p, sero.tested, r.parm, g.parm, epsilon=0, years=1, 
-                      study.time=100, alpha=1, t.a=0, t.b=0, init.inf=rep(1,5), model='exposure') {
+                      study.time=100,init.inf=rep(1,5), model='exposure') {
     
     fit.func <- function(par){
         parms <- list(r=r.parm, g=g.parm, params=par, scaling.factor=1, 
-                      pop=pop, pop.p=pop.p, epsilon=epsilon, alpha=alpha, t.a=t.a, t.b=t.b)
+                      pop=pop, pop.p=pop.p, epsilon=epsilon)
         binom.loglik(pop=pop, pop.p=pop.p, sero.p=sero.p, sero.tested=sero.tested, parms=parms, years=years, study.time=study.time, init.inf=init.inf, model=model)
     }
     
     fit <- optim(fit.func, par=c(1,2,2,1,2), method='L-BFGS-B', lower=rep(1e-4, 5), upper=rep(20, 5))
-    #print(paste(c('AIC:', round(2*length(fit$par)+2*fit$value, 3)), collapse=' '))
-    #print(paste(c('Fitted values:', round(fit$par, 3)), collapse=' '))
     print(paste(c('Normalized fitted values:', round(fit$par/fit$par[1], 3)), collapse=' '))
     return(fit$par/fit$par[1])
 }
