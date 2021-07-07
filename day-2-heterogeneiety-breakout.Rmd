@@ -307,12 +307,12 @@ fit.model <- function(pop, pop.p, sero.p, sero.tested, r.parm, g.parm, epsilon=0
 ### Proportionate mixing
 
 # Fit the activity levels using maximum likelihood
-activities.li <- fit.model(pop=pop.li, pop.p=pop.p.li, sero.p=sero.p.li, 
+activities.pmix.li <- fit.model(pop=pop.li, pop.p=pop.p.li, sero.p=sero.p.li, 
                            sero.tested=sero.tested.li, r.parm=r.parm, g.parm=g.parm)      
 
 # Simulate the model with R0=3 and plot outputs / print results (HIT, final epidemic size)
 results.pmix.li <- run.structured.model(R0.value=default.R0, pop=pop.li, 
-                                pop.p=pop.p.li, g.parm=g.parm, fitted.vars=activities.li)
+                                pop.p=pop.p.li, g.parm=g.parm, fitted.vars=activities.pmix.li)
 print(results.pmix.li)
 
 # For the NGM plot, Group A denotes non-Hispanic whites, B denotes Hispanics or Latinos, 
@@ -326,12 +326,12 @@ print(results.pmix.li)
 ### Assortative mixing
 
 # Fit the activity levels using maximum likelihood
-activities.li.amix <- fit.model(pop=pop.li, pop.p=pop.p.li, sero.p=sero.p.li, epsilon=0.5,
+activities.amix.li <- fit.model(pop=pop.li, pop.p=pop.p.li, sero.p=sero.p.li, epsilon=0.5,
                            sero.tested=sero.tested.li, r.parm=r.parm, g.parm=g.parm)      
 
 # Simulate the model with R0=3 and plot outputs / print results (HIT, final epidemic size)
 results.amix.li <- run.structured.model(R0.value=default.R0, pop=pop.li, epsilon=0.5, 
-                                pop.p=pop.p.li, g.parm=g.parm, fitted.vars=activities.li.amix)
+                                pop.p=pop.p.li, g.parm=g.parm, fitted.vars=activities.amix.li)
 print(results.amix.li)
 
 # For the NGM plot, Group A denotes non-Hispanic whites, B denotes Hispanics or Latinos, 
