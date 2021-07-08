@@ -145,26 +145,29 @@ run.structured.model <- function(R0.value, pop, pop.p, g.parm, fitted.vars, mode
                                  init.inf=rep(1,5), epsilon=0, years=1, plot.days=150, tstep=0.01, ci.plot=TRUE) {
   
     N <- pop; N0 <- N*pop.p[1]; N1 <- N*pop.p[2]; N2 <- N*pop.p[3]; N3 <- N*pop.p[4]; N4 <- N*pop.p[5]
+    
     inits <- c(S0=N0, S1=N1, S2=N2, S3=N3, S4=N4, E0=0, E1=0, E2=0, E3=0, E4=0, 
                 I0=0, I1=0, I2=0, I3=0, I4=0, R0=0, R1=0, R2=0, R3=0, R4=0) 
-    inits <- inits + c(-init.inf, rep(0,5), init.inf, rep(0,5)) # Initialize models with 1 infected in each group by default
-    dt <- seq(0, 365*years, tstep) # Simulate for 1 year by default
+    
+    inits <- inits + c(-init.inf, rep(0,5), init.inf, rep(0,5)) # *** Initialize models with 1 infected in each group by default
+    dt <- seq(0, 365*years, tstep)                              # *** Simulate for 1 year by default
 
     activities <- fitted.vars
     scale.beta <- (1-epsilon)*outer(activities, activities)/sum(pop*pop.p*activities) +    # Calculate un-scaled beta matrix
                   epsilon*activities/(pop*pop.p)*diag(5)
     scaling.factor <- rescale.R0(scale.beta, g.parm, pop.p, N, R0.value)                   # Rescale beta to match desired R0
-    parms <- list(r=r.parm, g=g.parm, activities=activities,                               # List of parameters to pass
+    parms <- list(r=r.parm, g=g.parm, activities=activities,                               # *** List of parameters to pass
                   scaling.factor=scaling.factor, pop=pop, pop.p=pop.p, epsilon=epsilon) 
-    simulation <- as.data.frame(lsoda(inits, dt, exposure.SEIR, parms=parms))              # Solve SEIR differential equations
+    
+    simulation <- as.data.frame(lsoda(inits, dt, exposure.SEIR, parms=parms))              # *** Solve SEIR differential equations
      
-    # Final size      
+    # Calculate final size by taking last time point    
     final.size <- simulation %>% 
           mutate(R = rowSums(select(., matches('R')))/N) %>%
           filter(row_number()==n()) %>%
           pull('R')
     
-    # Herd immunity threshold
+    # Calculate herd immunity threshold by calculating Rt (dominant eigenvalue method) and seeing where it drops below 1
     hit.result <- simulation %>%
             select(matches('S|time')) %>%
             rowwise() %>% 
@@ -185,11 +188,7 @@ run.structured.model <- function(R0.value, pop, pop.p, g.parm, fitted.vars, mode
         # Normalize cumulative incidence
         plotdat <- simulation %>% 
             select(matches('R|time')) %>%
-            mutate(R0 = R0/N0) %>%
-            mutate(R1 = R1/N1) %>%
-            mutate(R2 = R2/N2) %>%
-            mutate(R3 = R3/N3) %>%
-            mutate(R4 = R4/N4) %>%
+            mutate(R0 = R0/N0, R1 = R1/N1, R2 = R2/N2, R3 = R3/N3, R4 = R4/N4) %>%
             pivot_longer(-one_of(c('time')), names_to='Compartment', values_to='N')
         ylabel <- 'Proportion recovered'
     
